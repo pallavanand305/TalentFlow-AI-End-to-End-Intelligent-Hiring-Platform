@@ -1,0 +1,245 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Environment Variables (CRITICAL - DO NOT COMMIT)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+*.env
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.nox/
+coverage.xml
+*.cover
+.cache
+nosetests.xml
+
+# MLflow
+mlruns/
+mlartifacts/
+mlflow.db
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfstate.backup
+infra/terraform/.terraform.lock.hcl
+infra/terraform/terraform.tfvars
+infra/terraform/*.tfvars
+infra/terraform/override.tf
+infra/terraform/override.tf.json
+infra/terraform/*_override.tf
+infra/terraform/*_override.tf.json
+infra/terraform/.terraformrc
+infra/terraform/terraform.rc
+
+# AWS Credentials (CRITICAL - DO NOT COMMIT)
+.aws/
+*.pem
+*.key
+credentials
+config
+
+# Secrets and Keys (CRITICAL - DO NOT COMMIT)
+secrets/
+*.secret
+*.secrets
+secret.yaml
+secrets.yaml
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+profile_default/
+ipython_config.py
+
+# Model files
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+*.pb
+saved_models/
+checkpoints/
+
+# Data files
+data/
+datasets/
+*.csv
+*.tsv
+*.parquet
+*.json.gz
+*.jsonl
+*.feather
+*.arrow
+
+# Large files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Documentation
+docs/_build/
+site/
+.sphinx/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# pytype
+.pytype/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs
+/site
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Resume uploads (if storing locally during development)
+uploads/
+resumes/
+*.pdf
+*.docx
+
+# Node modules (if adding frontend later)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Windows
+[Tt]humbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# Kiro specs (keep these in repo)
+# !.kiro/
+
+# Keep important config examples
+!.env.example
+!docker-compose.yml
+!alembic.ini

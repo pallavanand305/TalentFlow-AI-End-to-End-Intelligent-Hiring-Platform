@@ -65,8 +65,9 @@ TalentFlow-AI/
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
-cd TalentFlow-AI
+git clone https://github.com/pallavanand305/TalentFlow-AI-End-to-End-Intelligent-Hiring-Platform.git
+cd TalentFlow-AI-End-to-End-Intelligent-Hiring-Platform
+
 ```
 
 2. **Create virtual environment**

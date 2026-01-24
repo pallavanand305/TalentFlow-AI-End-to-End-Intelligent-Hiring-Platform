@@ -6,7 +6,8 @@ Property 50: Referential integrity enforcement
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, strategies as st
+from hypothesis import settings as hypothesis_settings
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -52,7 +53,7 @@ class TestDatabaseSchema:
     """Property tests for database schema"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=10)
+    @hypothesis_settings(max_examples=10)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         email=st.emails(),
@@ -91,7 +92,7 @@ class TestDatabaseSchema:
             assert len(version) > 0, "Migration version should not be empty"
     
     @pytest.mark.asyncio
-    @settings(max_examples=20)
+    @hypothesis_settings(max_examples=20)
     @given(
         job_title=st.text(min_size=5, max_size=100),
         candidate_name=st.text(min_size=3, max_size=100),
@@ -190,7 +191,7 @@ class TestDatabaseConstraints:
     """Test that unique constraints are properly enforced"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=10)
+    @hypothesis_settings(max_examples=10)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         email=st.emails(),

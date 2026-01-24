@@ -3,7 +3,7 @@
 import os
 from typing import Optional
 from pathlib import Path
-import PyPDF2
+import pypdf
 import docx
 
 from backend.app.core.logging import get_logger
@@ -55,7 +55,7 @@ class TextExtractor:
             text_parts = []
             
             with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
+                pdf_reader = pypdf.PdfReader(file)
                 
                 # Check if PDF is encrypted
                 if pdf_reader.is_encrypted:
@@ -76,7 +76,7 @@ class TextExtractor:
             logger.info(f"Extracted {len(extracted_text)} characters from PDF: {file_path}")
             return extracted_text
         
-        except PyPDF2.errors.PdfReadError as e:
+        except pypdf.errors.PdfReadError as e:
             logger.error(f"PDF read error: {str(e)}")
             raise ValidationException(f"Failed to read PDF file: {str(e)}")
         except Exception as e:

@@ -41,17 +41,25 @@ services:
       - "5000:5000"
     volumes:
       - mlflow_data:/mlflow
+      - ./mlruns:/mlruns  # Local artifact storage
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=sqlite:///mlflow/mlflow.db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
     command: >
       mlflow server
       --backend-store-uri sqlite:///mlflow/mlflow.db
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
+      --serve-artifacts
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # FastAPI Backend (uncomment when ready)
   # backend:

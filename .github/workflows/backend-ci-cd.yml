@@ -1,0 +1,431 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'ml/**'
+      - 'requirements.txt'
+      - 'docker/Dockerfile.backend'
+      - 'docker/Dockerfile.ml'
+      - '.github/workflows/backend-ci-cd.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'ml/**'
+      - 'requirements.txt'
+      - 'docker/Dockerfile.backend'
+      - 'docker/Dockerfile.ml'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY_BACKEND: talentflow-ai-backend
+  ECR_REPOSITORY_ML: talentflow-ai-ml
+  ECS_SERVICE_BACKEND: talentflow-ai-backend-service
+  ECS_SERVICE_WORKER: talentflow-ai-worker-service
+  ECS_SERVICE_MLFLOW: talentflow-ai-mlflow-service
+  ECS_CLUSTER: talentflow-ai-cluster
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: talentflow_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        python -m spacy download en_core_web_sm
+    
+    - name: Run linting
+      run: |
+        echo "Running code quality checks..."
+        black --check . || (echo "Code formatting issues found. Run 'black .' to fix." && exit 1)
+        pylint backend/ ml/ --fail-under=8.0 || (echo "Pylint score below 8.0" && exit 1)
+        mypy backend/ ml/ --ignore-missing-imports || (echo "Type checking failed" && exit 1)
+    
+    - name: Run security checks
+      run: |
+        echo "Running security checks..."
+        bandit -r backend/ ml/ -f json -o bandit-report.json || true
+        safety check --json --output safety-report.json || true
+    
+    - name: Run tests
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/talentflow_test
+        REDIS_URL: redis://localhost:6379/0
+        SECRET_KEY: test-secret-key-for-ci-cd-pipeline-only
+        MLFLOW_TRACKING_URI: http://localhost:5000
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
+        S3_BUCKET_RESUMES: test-bucket
+        S3_BUCKET_MODELS: test-bucket
+      run: |
+        echo "Running test suite..."
+        pytest tests/ \
+          --cov=backend \
+          --cov=ml \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-fail-under=80 \
+          --junitxml=pytest-report.xml \
+          -v
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          pytest-report.xml
+          htmlcov/
+          bandit-report.json
+          safety-report.json
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  build-and-push:
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    outputs:
+      backend-image: ${{ steps.build-backend.outputs.image }}
+      ml-image: ${{ steps.build-ml.outputs.image }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build, tag, and push backend image
+      id: build-backend
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        echo "Building backend image..."
+        docker build \
+          -f docker/Dockerfile.backend \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=${{ github.sha }} \
+          .
+        
+        echo "Pushing backend image..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    - name: Build, tag, and push ML image
+      id: build-ml
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        echo "Building ML image..."
+        docker build \
+          -f docker/Dockerfile.ml \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY_ML:$IMAGE_TAG \
+          -t $ECR_REGISTRY/$ECR_REPOSITORY_ML:latest \
+          --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+          --build-arg VCS_REF=${{ github.sha }} \
+          .
+        
+        echo "Pushing ML image..."
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_ML:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY_ML:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY_ML:$IMAGE_TAG" >> $GITHUB_OUTPUT
+    
+    - name: Scan backend image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.build-backend.outputs.image }}
+        format: 'sarif'
+        output: 'backend-trivy-results.sarif'
+    
+    - name: Scan ML image for vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.build-ml.outputs.image }}
+        format: 'sarif'
+        output: 'ml-trivy-results.sarif'
+
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        
+        # Update ECS service - Backend
+        aws ecs update-service \
+          --cluster ${ECS_CLUSTER}-staging \
+          --service ${ECS_SERVICE_BACKEND}-staging \
+          --force-new-deployment \
+          --no-cli-pager
+        
+        # Update ECS service - Worker
+        aws ecs update-service \
+          --cluster ${ECS_CLUSTER}-staging \
+          --service ${ECS_SERVICE_WORKER}-staging \
+          --force-new-deployment \
+          --no-cli-pager
+        
+        # Update ECS service - MLflow
+        aws ecs update-service \
+          --cluster ${ECS_CLUSTER}-staging \
+          --service ${ECS_SERVICE_MLFLOW}-staging \
+          --force-new-deployment \
+          --no-cli-pager
+    
+    - name: Wait for staging deployment
+      run: |
+        echo "Waiting for staging deployment to complete..."
+        aws ecs wait services-stable \
+          --cluster ${ECS_CLUSTER}-staging \
+          --services ${ECS_SERVICE_BACKEND}-staging ${ECS_SERVICE_WORKER}-staging ${ECS_SERVICE_MLFLOW}-staging \
+          --no-cli-pager
+    
+    - name: Run staging smoke tests
+      run: |
+        echo "Running staging smoke tests..."
+        # Add staging endpoint health checks here
+        curl -f https://staging-api.talentflow.com/health || exit 1
+        echo "Staging smoke tests passed!"
+
+  deploy-production:
+    needs: [build-and-push, deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Create deployment
+      id: deployment
+      run: |
+        echo "Creating production deployment..."
+        DEPLOYMENT_ID=$(date +%s)
+        echo "deployment-id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+        
+        # Tag the deployment
+        aws resourcegroupstaggingapi tag-resources \
+          --resource-arn-list \
+            "arn:aws:ecs:${AWS_REGION}:$(aws sts get-caller-identity --query Account --output text):service/${ECS_CLUSTER}/${ECS_SERVICE_BACKEND}" \
+            "arn:aws:ecs:${AWS_REGION}:$(aws sts get-caller-identity --query Account --output text):service/${ECS_CLUSTER}/${ECS_SERVICE_WORKER}" \
+          --tags "Deployment=$DEPLOYMENT_ID,GitSHA=${{ github.sha }}" \
+          --no-cli-pager || true
+    
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        
+        # Update ECS service - Backend
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE_BACKEND \
+          --force-new-deployment \
+          --no-cli-pager
+        
+        # Update ECS service - Worker
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE_WORKER \
+          --force-new-deployment \
+          --no-cli-pager
+        
+        # Update ECS service - MLflow
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE_MLFLOW \
+          --force-new-deployment \
+          --no-cli-pager
+    
+    - name: Wait for production deployment
+      run: |
+        echo "Waiting for production deployment to complete..."
+        aws ecs wait services-stable \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE_BACKEND $ECS_SERVICE_WORKER $ECS_SERVICE_MLFLOW \
+          --no-cli-pager
+    
+    - name: Run production smoke tests
+      run: |
+        echo "Running production smoke tests..."
+        # Add production endpoint health checks here
+        curl -f https://api.talentflow.com/health || exit 1
+        echo "Production smoke tests passed!"
+    
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "✅ Production deployment successful!"
+        echo "Deployment ID: ${{ steps.deployment.outputs.deployment-id }}"
+        echo "Git SHA: ${{ github.sha }}"
+        echo "Services updated: Backend, Worker, MLflow"
+        
+        # Optional: Send Slack notification
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🚀 TalentFlow AI deployed to production successfully!\nDeployment ID: ${{ steps.deployment.outputs.deployment-id }}\nGit SHA: ${{ github.sha }}"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+    
+    - name: Notify deployment failure
+      if: failure()
+      run: |
+        echo "❌ Production deployment failed!"
+        echo "Deployment ID: ${{ steps.deployment.outputs.deployment-id }}"
+        echo "Git SHA: ${{ github.sha }}"
+        
+        # Optional: Send Slack notification
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🚨 TalentFlow AI production deployment FAILED!\nDeployment ID: ${{ steps.deployment.outputs.deployment-id }}\nGit SHA: ${{ github.sha }}\nCheck GitHub Actions for details."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+        
+        # Trigger rollback if needed
+        echo "Consider rolling back to previous version if issues persist."
+
+  post-deployment:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Check service health
+      run: |
+        echo "Checking service health post-deployment..."
+        
+        # Check ECS service status
+        aws ecs describe-services \
+          --cluster $ECS_CLUSTER \
+          --services $ECS_SERVICE_BACKEND $ECS_SERVICE_WORKER $ECS_SERVICE_MLFLOW \
+          --query 'services[*].[serviceName,status,runningCount,desiredCount]' \
+          --output table \
+          --no-cli-pager
+        
+        # Check CloudWatch metrics
+        aws cloudwatch get-metric-statistics \
+          --namespace AWS/ECS \
+          --metric-name CPUUtilization \
+          --dimensions Name=ServiceName,Value=$ECS_SERVICE_BACKEND \
+          --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
+          --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+          --period 300 \
+          --statistics Average \
+          --no-cli-pager || true
+    
+    - name: Update deployment status
+      run: |
+        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+          echo "✅ Deployment completed successfully"
+          echo "All services are healthy and running"
+        else
+          echo "❌ Deployment had issues"
+          echo "Check logs and consider rollback if necessary"
+        fi

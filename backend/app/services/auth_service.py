@@ -1,6 +1,6 @@
 """Authentication service for JWT token management"""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 
@@ -40,16 +40,16 @@ class AuthService:
             JWT token string
         """
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+            expire = datetime.now(timezone.utc) + timedelta(minutes=self.access_token_expire_minutes)
         
         to_encode = {
             "sub": str(user_id),
             "username": username,
             "role": role.value,
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "access"
         }
         
@@ -75,15 +75,15 @@ class AuthService:
             JWT refresh token string
         """
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
+            expire = datetime.now(timezone.utc) + timedelta(days=self.refresh_token_expire_days)
         
         to_encode = {
             "sub": str(user_id),
             "username": username,
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "type": "refresh"
         }
         
@@ -106,7 +106,7 @@ class AuthService:
             
             # Check expiration
             exp = payload.get("exp")
-            if exp and datetime.fromtimestamp(exp) < datetime.utcnow():
+            if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(timezone.utc):
                 logger.warning("Token has expired")
                 return None
             

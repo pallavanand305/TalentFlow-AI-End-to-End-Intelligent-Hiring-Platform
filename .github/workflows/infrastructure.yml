@@ -1,0 +1,320 @@
+name: Infrastructure CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/infrastructure.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/terraform/**'
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.6.0
+  TF_WORKING_DIR: infra/terraform
+
+jobs:
+  terraform-validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Terraform Format Check
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Checking Terraform formatting..."
+        terraform fmt -check -recursive
+    
+    - name: Terraform Init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Initializing Terraform..."
+        terraform init -backend=false
+    
+    - name: Terraform Validate
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Validating Terraform configuration..."
+        terraform validate
+    
+    - name: TFLint
+      uses: terraform-linters/setup-tflint@v3
+      with:
+        tflint_version: latest
+    
+    - name: Run TFLint
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Running TFLint..."
+        tflint --init
+        tflint --recursive
+
+  terraform-security:
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Checkov
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: ${{ env.TF_WORKING_DIR }}
+        framework: terraform
+        output_format: sarif
+        output_file_path: checkov-results.sarif
+        soft_fail: true
+    
+    - name: Upload Checkov scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: checkov-results.sarif
+    
+    - name: Run tfsec
+      uses: aquasecurity/tfsec-action@v1.0.3
+      with:
+        working_directory: ${{ env.TF_WORKING_DIR }}
+        format: sarif
+        soft_fail: true
+    
+    - name: Upload tfsec scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: tfsec.sarif
+
+  terraform-plan:
+    runs-on: ubuntu-latest
+    needs: [terraform-validate, terraform-security]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Terraform Init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Initializing Terraform with backend..."
+        terraform init
+    
+    - name: Select Terraform Workspace
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          WORKSPACE="prod"
+        else
+          WORKSPACE="staging"
+        fi
+        echo "Selecting workspace: $WORKSPACE"
+        terraform workspace select $WORKSPACE || terraform workspace new $WORKSPACE
+    
+    - name: Terraform Plan
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Creating Terraform plan..."
+        terraform plan \
+          -var="db_password=${{ secrets.DB_PASSWORD }}" \
+          -var="secret_key=${{ secrets.SECRET_KEY }}" \
+          -var="aws_access_key_id=${{ secrets.APP_AWS_ACCESS_KEY_ID }}" \
+          -var="aws_secret_access_key=${{ secrets.APP_AWS_SECRET_ACCESS_KEY }}" \
+          -var="certificate_arn=${{ secrets.SSL_CERTIFICATE_ARN }}" \
+          -var="domain_name=${{ secrets.DOMAIN_NAME }}" \
+          -out=tfplan \
+          -detailed-exitcode
+      continue-on-error: true
+      id: plan
+    
+    - name: Comment PR with Plan
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+          
+          // Get plan output
+          const planOutput = execSync('cd ${{ env.TF_WORKING_DIR }} && terraform show -no-color tfplan', { encoding: 'utf8' });
+          
+          // Create comment body
+          const output = `#### Terraform Plan 📖
+          
+          <details><summary>Show Plan</summary>
+          
+          \`\`\`terraform
+          ${planOutput}
+          \`\`\`
+          
+          </details>
+          
+          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Workflow: \`${{ github.workflow }}\`*`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          });
+    
+    - name: Upload Terraform Plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan
+        path: ${{ env.TF_WORKING_DIR }}/tfplan
+        retention-days: 5
+
+  terraform-apply:
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Download Terraform Plan
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+        path: ${{ env.TF_WORKING_DIR }}/
+    
+    - name: Terraform Init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Initializing Terraform..."
+        terraform init
+    
+    - name: Select Production Workspace
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Selecting production workspace..."
+        terraform workspace select prod
+    
+    - name: Terraform Apply
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Applying Terraform plan..."
+        terraform apply -auto-approve tfplan
+    
+    - name: Terraform Output
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Terraform outputs:"
+        terraform output -json > terraform-outputs.json
+        cat terraform-outputs.json
+    
+    - name: Upload Terraform Outputs
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-outputs
+        path: ${{ env.TF_WORKING_DIR }}/terraform-outputs.json
+    
+    - name: Notify Infrastructure Changes
+      run: |
+        echo "✅ Infrastructure deployment completed successfully!"
+        echo "Check the outputs for connection details and endpoints."
+        
+        # Optional: Send Slack notification
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🏗️ TalentFlow AI infrastructure updated successfully!\nWorkspace: prod\nCommit: ${{ github.sha }}"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+
+  terraform-drift-detection:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Terraform Init
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: terraform init
+    
+    - name: Select Production Workspace
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: terraform workspace select prod
+    
+    - name: Check for Drift
+      working-directory: ${{ env.TF_WORKING_DIR }}
+      run: |
+        echo "Checking for infrastructure drift..."
+        terraform plan \
+          -var="db_password=${{ secrets.DB_PASSWORD }}" \
+          -var="secret_key=${{ secrets.SECRET_KEY }}" \
+          -var="aws_access_key_id=${{ secrets.APP_AWS_ACCESS_KEY_ID }}" \
+          -var="aws_secret_access_key=${{ secrets.APP_AWS_SECRET_ACCESS_KEY }}" \
+          -var="certificate_arn=${{ secrets.SSL_CERTIFICATE_ARN }}" \
+          -var="domain_name=${{ secrets.DOMAIN_NAME }}" \
+          -detailed-exitcode
+      continue-on-error: true
+      id: drift
+    
+    - name: Notify Drift Detection
+      if: steps.drift.outputs.exitcode == '2'
+      run: |
+        echo "⚠️ Infrastructure drift detected!"
+        echo "Manual review required to determine if changes should be applied."
+        
+        # Optional: Send Slack notification
+        if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"⚠️ TalentFlow AI infrastructure drift detected!\nManual review required. Check GitHub Actions for details."}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
+        fi
+
+# Schedule drift detection to run daily
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Run at 6 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger

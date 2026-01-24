@@ -1,6 +1,7 @@
 """Job model"""
 
-from sqlalchemy import Column, String, Text, ARRAY, Enum as SQLEnum, DECIMAL, ForeignKey
+from sqlalchemy import Column, String, Text, ARRAY, Enum as SQLEnum, DECIMAL, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from backend.app.core.database import Base
@@ -68,8 +69,3 @@ class JobHistory(Base):
     
     def __repr__(self):
         return f"<JobHistory(id={self.id}, job_id={self.job_id}, changed_at={self.changed_at})>"
-
-
-# Import for relationship
-from sqlalchemy import DateTime
-from sqlalchemy.sql import func

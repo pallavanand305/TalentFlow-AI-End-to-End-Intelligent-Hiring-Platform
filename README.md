@@ -41,11 +41,11 @@ TalentFlow-AI/
 
 ## 🛠️ Tech Stack
 
-**Backend**: FastAPI, SQLAlchemy, Pydantic, Celery, Redis
+**Backend**: FastAPI, SQLAlchemy, Pydantic, Redis
 
-**ML/AI**: scikit-learn, Sentence Transformers, spaCy, PyPDF2
+**ML/AI**: scikit-learn, Sentence Transformers, spaCy, PyPDF2, Hypothesis
 
-**MLOps**: MLflow, Hypothesis (property testing)
+**MLOps**: MLflow, Model Registry, Experiment Tracking
 
 **Cloud**: AWS (ECS, RDS, S3, ECR, CloudWatch)
 
@@ -121,6 +121,18 @@ The API will be available at `http://localhost:8000`
 
 API documentation: `http://localhost:8000/docs`
 
+### Running Background Workers
+
+For background processing (resume parsing, batch scoring):
+
+```bash
+# Start background workers
+python scripts/worker.py --workers 2
+
+# Or with Docker
+docker-compose up worker
+```
+
 ### Running Tests
 
 ```bash
@@ -185,8 +197,23 @@ The API uses JWT tokens for authentication. Default roles:
 - `GET /api/v1/jobs` - List jobs
 
 ### Scoring
-- `POST /api/v1/scores/compute` - Score candidate
+- `POST /api/v1/scores/compute` - Score candidate for job
+- `GET /api/v1/scores/{id}` - Get score details
+- `POST /api/v1/scores/{id}/explain` - Generate score explanation
 - `GET /api/v1/jobs/{id}/candidates` - Get ranked candidates
+- `GET /api/v1/jobs/{id}/top-candidates` - Get top N candidates
+
+### Models
+- `GET /api/v1/models` - List all models
+- `GET /api/v1/models/{name}` - Get model details
+- `POST /api/v1/models/promote` - Promote model to production
+- `POST /api/v1/models/compare` - Compare model versions
+- `GET /api/v1/models/health` - Check MLflow health
+
+### Background Jobs
+- `GET /api/v1/jobs/status/{id}` - Get job status
+- `GET /api/v1/jobs/stats` - Get queue statistics (admin)
+- `POST /api/v1/jobs/cleanup` - Clean up old jobs (admin)
 
 ## 🚀 Deployment
 
@@ -239,15 +266,27 @@ CI/CD pipeline automatically deploys on merge to main branch.
 
 MIT License
 
-## 🎯 Roadmap
+## 🎯 Status
 
-- [ ] Core MVP (Resume parsing, Job management, Scoring)
-- [ ] MLOps integration (MLflow, model versioning)
-- [ ] AWS deployment (ECS, RDS, S3)
-- [ ] CI/CD pipelines (GitHub Actions)
-- [ ] Advanced features (LLM explanations, drift detection)
-- [ ] Performance optimization
-- [ ] Monitoring dashboards
+### ✅ Completed Features
+- **Core MVP**: Resume parsing, Job management, Candidate scoring
+- **Authentication**: JWT-based auth with role-based access control
+- **MLOps Integration**: MLflow model versioning and tracking
+- **Background Processing**: Redis-based async task queue
+- **API Documentation**: Comprehensive OpenAPI/Swagger docs
+- **Testing**: Unit, integration, and property-based tests
+- **Score Explanations**: Template-based explanation generation
+
+### 🚧 In Progress
+- AWS deployment infrastructure
+- CI/CD pipelines
+- Advanced monitoring and alerting
+
+### 📋 Planned
+- LLM-powered explanations
+- Advanced drift detection
+- Performance optimization
+- Real-time monitoring dashboards
 
 ## 📧 Contact
 

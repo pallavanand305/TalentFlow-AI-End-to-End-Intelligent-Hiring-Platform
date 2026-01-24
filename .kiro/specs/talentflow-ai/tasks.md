@@ -177,41 +177,41 @@ The implementation is organized into phases:
     - **Property 52: S3 storage with access controls**
     - **Validates: Requirements 1.3, 1.4, 1.6, 8.3**
 
-- [ ] 8. Build resume upload API endpoints
-  - [ ] 8.1 Implement POST /api/v1/resumes/upload endpoint
+- [x] 8. Build resume upload API endpoints
+  - [x] 8.1 Implement POST /api/v1/resumes/upload endpoint
     - Accept multipart file upload
     - Validate file format and size
     - Return job ID for async processing
     - _Requirements: 1.1, 1.2, 1.4_
   
-  - [ ] 8.2 Implement GET /api/v1/resumes/{resume_id} endpoint
+  - [x] 8.2 Implement GET /api/v1/resumes/{resume_id} endpoint
     - Return candidate details with parsed data
     - _Requirements: 1.3_
   
-  - [ ] 8.3 Implement GET /api/v1/resumes and DELETE endpoints
+  - [x] 8.3 Implement GET /api/v1/resumes and DELETE endpoints
     - Add search and filtering for resumes
     - Implement soft delete
     - _Requirements: 1.6_
   
-  - [ ] 8.4 Write integration tests for resume API
+  - [x] 8.4 Write integration tests for resume API
     - Test complete upload-parse-retrieve workflow
     - Test error handling for invalid uploads
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
 
-- [ ] 9. Implement job management system
-  - [ ] 9.1 Create Job repository
+- [x] 9. Implement job management system
+  - [x] 9.1 Create Job repository
     - Implement CRUD operations for jobs
     - Add search and filtering capabilities
     - Implement job history tracking
     - _Requirements: 2.1, 2.3, 2.5_
   
-  - [ ] 9.2 Create JobService for business logic
+  - [x] 9.2 Create JobService for business logic
     - Implement job creation with validation
     - Implement job updates with history preservation
     - Implement soft delete (mark as inactive)
     - _Requirements: 2.1, 2.2, 2.6_
   
-  - [ ] 9.3 Write property tests for job management
+  - [x] 9.3 Write property tests for job management
     - **Property 10: Job creation validation and storage**
     - **Property 11: Required field enforcement**
     - **Property 12: Job ID uniqueness**
@@ -220,8 +220,8 @@ The implementation is organized into phases:
     - **Property 15: Soft delete behavior**
     - **Validates: Requirements 2.1, 2.2, 2.3, 2.4, 2.5, 2.6**
 
-- [ ] 10. Build job management API endpoints
-  - [ ] 10.1 Implement job CRUD endpoints
+- [x] 10. Build job management API endpoints
+  - [x] 10.1 Implement job CRUD endpoints
     - POST /api/v1/jobs - Create job
     - GET /api/v1/jobs/{job_id} - Get job details
     - PUT /api/v1/jobs/{job_id} - Update job
@@ -229,100 +229,100 @@ The implementation is organized into phases:
     - GET /api/v1/jobs - List and search jobs
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.6_
   
-  - [ ] 10.2 Write integration tests for job API
+  - [x] 10.2 Write integration tests for job API
     - Test complete job lifecycle
     - Test history tracking on updates
     - _Requirements: 2.1, 2.5, 2.6_
 
-- [ ] 11. Checkpoint - Verify core data management is working
+- [x] 11. Checkpoint - Verify core data management is working
   - Ensure all tests pass
   - Verify resume upload and parsing works end-to-end
   - Verify job management works correctly
   - Ask the user if questions arise
 
-- [ ] 12. Implement baseline scoring engine
-  - [ ] 12.1 Create TF-IDF baseline model
+- [x] 12. Implement baseline scoring engine
+  - [x] 12.1 Create TF-IDF baseline model
     - Implement TF-IDF vectorization for text
     - Implement cosine similarity computation
     - Create weighted scoring across resume sections
     - _Requirements: 3.1, 13.4_
   
-  - [ ] 12.2 Create ScoringEngine class
+  - [x] 12.2 Create ScoringEngine class
     - Implement score computation method
     - Add score normalization to [0, 1] range
     - Implement section-wise weighting
     - _Requirements: 3.1, 13.3_
   
-  - [ ] 12.3 Write property tests for scoring
+  - [x] 12.3 Write property tests for scoring
     - **Property 16: Score bounds**
     - **Property 21: Weighted section scoring**
     - **Validates: Requirements 3.1, 13.3, 13.5**
   
-  - [ ] 12.4 Write unit tests for scoring edge cases
+  - [x] 12.4 Write unit tests for scoring edge cases
     - Test with empty resumes, empty job descriptions
     - Test with identical resume and job description
     - _Requirements: 3.1_
 
-- [ ] 13. Implement advanced semantic similarity model
-  - [ ] 13.1 Integrate Sentence Transformers
+- [x] 13. Implement advanced semantic similarity model
+  - [x] 13.1 Integrate Sentence Transformers
     - Install sentence-transformers library
     - Load pre-trained model (all-MiniLM-L6-v2)
     - Implement embedding generation
     - _Requirements: 3.2_
   
-  - [ ] 13.2 Enhance ScoringEngine with semantic embeddings
+  - [x] 13.2 Enhance ScoringEngine with semantic embeddings
     - Generate embeddings for resume sections
     - Generate embeddings for job description sections
     - Compute section-wise semantic similarity
     - Combine with weighted scoring
     - _Requirements: 3.2, 13.3_
   
-  - [ ] 13.3 Write property tests for semantic scoring
+  - [x] 13.3 Write property tests for semantic scoring
     - **Property 16: Score bounds** (verify with semantic model)
     - **Property 21: Weighted section scoring** (verify with semantic model)
     - **Validates: Requirements 3.1, 13.3**
 
-- [ ] 14. Implement scoring service and persistence
-  - [ ] 14.1 Create Score repository
+- [x] 14. Implement scoring service and persistence
+  - [x] 14.1 Create Score repository
     - Implement score CRUD operations
     - Add candidate ranking queries
     - Implement score invalidation on job updates
     - _Requirements: 3.3, 3.4, 3.6_
   
-  - [ ] 14.2 Create ScoringService for orchestration
+  - [x] 14.2 Create ScoringService for orchestration
     - Implement score computation workflow
     - Implement score persistence
     - Implement candidate ranking for jobs
     - Add score invalidation logic
     - _Requirements: 3.3, 3.4, 3.6_
   
-  - [ ] 14.3 Write property tests for scoring service
+  - [x] 14.3 Write property tests for scoring service
     - **Property 17: Candidate ranking order**
     - **Property 18: Score persistence round-trip**
     - **Property 20: Score invalidation on job update**
     - **Validates: Requirements 3.3, 3.4, 3.6**
 
-- [ ] 15. Build scoring API endpoints
-  - [ ] 15.1 Implement scoring endpoints
+- [x] 15. Build scoring API endpoints
+  - [x] 15.1 Implement scoring endpoints
     - POST /api/v1/scores/compute - Compute candidate-job score
     - GET /api/v1/scores/{score_id} - Get score details
     - GET /api/v1/jobs/{job_id}/candidates - Get ranked candidates for job
     - GET /api/v1/jobs/{job_id}/top-candidates - Get top N candidates
     - _Requirements: 3.1, 3.3, 3.4_
   
-  - [ ] 15.2 Write integration tests for scoring API
+  - [x] 15.2 Write integration tests for scoring API
     - Test complete scoring workflow
     - Test candidate ranking
     - _Requirements: 3.1, 3.3, 3.4_
 
-- [ ] 16. Implement optional score explanation generation
-  - [ ] 16.1 Create explanation generator
+- [x] 16. Implement optional score explanation generation
+  - [x] 16.1 Create explanation generator
     - Implement template-based explanation generation
     - Add section-wise contribution analysis
     - Optional: Integrate LLM for natural language explanations
     - _Requirements: 3.5_
   
-  - [ ] 16.2 Write property test for explanations
+  - [x] 16.2 Write property test for explanations
     - **Property 19: Score explanation generation**
     - **Validates: Requirements 3.5**
 
@@ -333,31 +333,31 @@ The implementation is organized into phases:
   - Ask the user if questions arise
 
 - [ ] 18. Implement background job processing system
-  - [ ] 18.1 Set up Redis and task queue
+  - [x] 18.1 Set up Redis and task queue
     - Configure Redis connection
     - Implement task queue abstraction
     - Add job status tracking in database
     - _Requirements: 6.3, 6.4_
   
-  - [ ] 18.2 Create BackgroundProcessor class
+  - [x] 18.2 Create BackgroundProcessor class
     - Implement task enqueueing
     - Implement task status tracking
     - Add retry logic with exponential backoff
     - _Requirements: 6.3, 6.4, 6.5, 6.6_
   
-  - [ ] 18.3 Implement background tasks for resume parsing
+  - [x] 18.3 Implement background tasks for resume parsing
     - Create async resume parsing task
     - Integrate with ResumeService
     - Update job status on completion/failure
     - _Requirements: 6.1_
   
-  - [ ] 18.4 Implement background tasks for batch scoring
+  - [x] 18.4 Implement background tasks for batch scoring
     - Create async batch scoring task
     - Integrate with ScoringService
     - Update job status on completion/failure
     - _Requirements: 6.2_
   
-  - [ ] 18.5 Write property tests for background processing
+  - [x] 18.5 Write property tests for background processing
     - **Property 25: Async operation acknowledgment**
     - **Property 32: Async task execution**
     - **Property 33: Job ID generation**
@@ -367,39 +367,39 @@ The implementation is organized into phases:
     - **Validates: Requirements 4.5, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6**
 
 - [ ] 19. Add background job status API endpoint
-  - [ ] 19.1 Implement GET /api/v1/jobs/status/{job_id}
+  - [x] 19.1 Implement GET /api/v1/jobs/status/{job_id}
     - Return current job status and progress
     - Return result data on completion
     - Return error details on failure
     - _Requirements: 6.4_
   
-  - [ ] 19.2 Write integration tests for background jobs
+  - [x] 19.2 Write integration tests for background jobs
     - Test async resume parsing workflow
     - Test async batch scoring workflow
     - Test retry logic with simulated failures
     - _Requirements: 6.1, 6.2, 6.6_
 
 - [ ] 20. Integrate MLflow for model management
-  - [ ] 20.1 Set up MLflow tracking server
+  - [x] 20.1 Set up MLflow tracking server
     - Configure MLflow tracking URI
     - Set up artifact storage (S3 or local)
     - Initialize MLflow in Docker Compose
     - _Requirements: 5.1_
   
-  - [ ] 20.2 Create ModelRegistry class
+  - [x] 20.2 Create ModelRegistry class
     - Implement model logging to MLflow
     - Implement model loading from registry
     - Implement model promotion workflow
     - Add model version comparison
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   
-  - [ ] 20.3 Integrate MLflow with ScoringEngine
+  - [x] 20.3 Integrate MLflow with ScoringEngine
     - Load models from MLflow registry
     - Track model version used for each score
     - Log inference metrics
     - _Requirements: 5.2, 10.1_
   
-  - [ ] 20.4 Write property tests for MLflow integration
+  - [x] 20.4 Write property tests for MLflow integration
     - **Property 37: Training metrics logging**
     - **Property 38: Model version registration**
     - **Property 39: Model metadata completeness**
@@ -409,32 +409,32 @@ The implementation is organized into phases:
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6**
 
 - [ ] 21. Build model management API endpoints
-  - [ ] 21.1 Implement model management endpoints
+  - [x] 21.1 Implement model management endpoints
     - GET /api/v1/models - List all models and versions
     - GET /api/v1/models/{model_id} - Get model details
     - POST /api/v1/models/promote - Promote model to production
     - _Requirements: 5.2, 5.4, 5.5_
   
-  - [ ] 21.2 Write integration tests for model management
+  - [x] 21.2 Write integration tests for model management
     - Test model registration and retrieval
     - Test model promotion workflow
     - _Requirements: 5.2, 5.5_
 
-- [ ] 22. Implement model training pipeline
-  - [ ] 22.1 Create training script for baseline model
+- [x] 22. Implement model training pipeline
+  - [x] 22.1 Create training script for baseline model
     - Load training data from database
     - Train TF-IDF model
     - Log metrics and parameters to MLflow
     - Register model in registry
     - _Requirements: 5.1, 5.2_
   
-  - [ ] 22.2 Create training script for semantic model
+  - [x] 22.2 Create training script for semantic model
     - Fine-tune sentence transformer on domain data
     - Log metrics and parameters to MLflow
     - Register model in registry
     - _Requirements: 5.1, 5.2_
   
-  - [ ] 22.3 Write unit tests for training pipeline
+  - [x] 22.3 Write unit tests for training pipeline
     - Test training with sample data
     - Verify MLflow logging
     - _Requirements: 5.1, 5.2_
@@ -571,26 +571,26 @@ The implementation is organized into phases:
     - Support local and test environments
     - _Requirements: 14.4_
 
-- [ ] 31. Write comprehensive documentation
-  - [ ] 31.1 Create README with setup instructions
+- [x] 31. Write comprehensive documentation
+  - [x] 31.1 Create README with setup instructions
     - Document local development setup
     - Document Docker Compose usage
     - Document environment variables
     - _Requirements: 14.6_
   
-  - [ ] 31.2 Create API documentation
+  - [x] 31.2 Create API documentation
     - Enhance OpenAPI descriptions
     - Add usage examples for all endpoints
     - Document authentication flow
     - _Requirements: 15.4, 15.5_
   
-  - [ ] 31.3 Create deployment documentation
+  - [x] 31.3 Create deployment documentation
     - Document AWS infrastructure setup
     - Document CI/CD pipeline configuration
     - Document production deployment process
     - _Requirements: 8.7_
 
-- [ ] 32. Final checkpoint - End-to-end system verification
+- [x] 32. Final checkpoint - End-to-end system verification
   - Run complete test suite (unit, property, integration)
   - Verify all API endpoints work correctly
   - Test complete workflows: upload resume → parse → create job → score → rank
@@ -600,7 +600,7 @@ The implementation is organized into phases:
   - Ask the user if questions arise
 
 - [ ] 33. Deploy to AWS and verify production readiness
-  - [ ] 33.1 Deploy infrastructure with Terraform
+  - [x] 33.1 Deploy infrastructure with Terraform
     - Apply Terraform configuration
     - Verify all AWS resources are created
     - _Requirements: 8.1, 8.7_

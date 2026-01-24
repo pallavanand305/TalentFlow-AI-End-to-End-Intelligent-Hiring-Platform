@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # MLflow
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
     MLFLOW_ARTIFACT_ROOT: str = "./mlruns"
+    MLFLOW_BACKEND_STORE_URI: str = "sqlite:///mlflow/mlflow.db"
     
     # File Upload
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024  # 10MB

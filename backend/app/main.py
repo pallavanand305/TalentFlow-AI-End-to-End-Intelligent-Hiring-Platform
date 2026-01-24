@@ -1,5 +1,6 @@
 """FastAPI application entry point"""
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,83 +15,108 @@ from backend.app.core.middleware import (
     RateLimitMiddleware
 )
 from backend.app.core.exceptions import TalentFlowException
+from backend.app.core.documentation import get_custom_openapi
 
 # Setup logging
 setup_logging()
 logger = get_logger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Debug mode: {settings.DEBUG}")
+    
+    # Initialize task queue connection
+    try:
+        from backend.app.core.task_queue import task_queue
+        await task_queue.connect()
+        logger.info("Connected to Redis task queue")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis task queue: {e}")
+        # Don't fail startup if Redis is not available in development
+        if settings.ENVIRONMENT == "production":
+            raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down application")
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="""
-## TalentFlow AI - Intelligent Hiring Platform
-
-An end-to-end AI-powered backend system that automates candidate screening and ranking.
-
-### Features
-
-* **Resume Parsing**: Extract structured data from PDF/DOCX resumes using NLP
-* **Semantic Matching**: ML-powered candidate-job similarity scoring
-* **Background Processing**: Async task execution for long-running operations
-* **MLOps**: Model versioning and tracking with MLflow
-* **Authentication**: JWT-based auth with role-based access control
-
-### Authentication
-
-Most endpoints require authentication. To authenticate:
-
-1. Register a new user at `/api/v1/auth/register`
-2. Login at `/api/v1/auth/login` to get an access token
-3. Include the token in the `Authorization` header: `Bearer <token>`
-
-### Rate Limiting
-
-API requests are rate-limited to {rate_limit} requests per minute per IP address.
-
-### Roles
-
-* **admin**: Full system access
-* **recruiter**: Manage resumes and view candidates
-* **hiring_manager**: Create jobs and view ranked candidates
-    """.format(rate_limit=settings.RATE_LIMIT_PER_MINUTE),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
+    lifespan=lifespan,
     openapi_tags=[
         {
             "name": "Authentication",
-            "description": "User registration, login, and token management"
+            "description": "User registration, login, and token management",
+            "externalDocs": {
+                "description": "Authentication Guide",
+                "url": "https://docs.talentflow.ai/auth"
+            }
         },
         {
             "name": "Resumes",
-            "description": "Resume upload, parsing, and candidate management"
+            "description": "Resume upload, parsing, and candidate management",
+            "externalDocs": {
+                "description": "Resume Processing Guide",
+                "url": "https://docs.talentflow.ai/resumes"
+            }
         },
         {
             "name": "Jobs",
-            "description": "Job posting creation and management"
+            "description": "Job posting creation and management",
+            "externalDocs": {
+                "description": "Job Management Guide", 
+                "url": "https://docs.talentflow.ai/jobs"
+            }
         },
         {
             "name": "Scoring",
-            "description": "Candidate-job matching and ranking"
+            "description": "Candidate-job matching and ranking",
+            "externalDocs": {
+                "description": "Scoring Algorithm Guide",
+                "url": "https://docs.talentflow.ai/scoring"
+            }
         },
         {
             "name": "Models",
-            "description": "ML model management and versioning"
+            "description": "ML model management and versioning",
+            "externalDocs": {
+                "description": "MLOps Guide",
+                "url": "https://docs.talentflow.ai/mlops"
+            }
         },
         {
             "name": "Background Jobs",
-            "description": "Async task status tracking"
+            "description": "Async task status tracking",
+            "externalDocs": {
+                "description": "Background Processing Guide",
+                "url": "https://docs.talentflow.ai/background-jobs"
+            }
         },
     ],
     contact={
         "name": "TalentFlow AI Support",
         "email": "support@talentflow.ai",
+        "url": "https://support.talentflow.ai"
     },
     license_info={
         "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT"
     },
+    terms_of_service="https://talentflow.ai/terms"
 )
+
+# Set custom OpenAPI schema
+app.openapi = lambda: get_custom_openapi(app)
 
 # Add custom middleware (order matters - first added is outermost)
 app.add_middleware(RequestIDMiddleware)
@@ -194,18 +220,37 @@ async def general_exception_handler(request: Request, exc: Exception):
     )
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Application startup tasks"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager"""
+    # Startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown tasks"""
+    
+    # Initialize task queue connection
+    try:
+        from backend.app.core.task_queue import task_queue
+        await task_queue.connect()
+        logger.info("Connected to Redis task queue")
+    except Exception as e:
+        logger.error(f"Failed to connect to Redis task queue: {e}")
+        # Don't fail startup if Redis is not available in development
+        if settings.ENVIRONMENT == "production":
+            raise
+    
+    yield
+    
+    # Shutdown
     logger.info("Shutting down application")
+    
+    # Disconnect from task queue
+    try:
+        from backend.app.core.task_queue import task_queue
+        await task_queue.disconnect()
+        logger.info("Disconnected from Redis task queue")
+    except Exception as e:
+        logger.error(f"Error disconnecting from Redis task queue: {e}")
 
 
 @app.get("/")
@@ -225,12 +270,11 @@ async def health_check():
 
 
 # API routers
-from backend.app.api import auth
+from backend.app.api import auth, resumes, jobs, background_jobs, models
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
-
-# Additional routers will be added as we build them
-# from backend.app.api import resumes, jobs, scores
-# app.include_router(resumes.router, prefix=f"{settings.API_V1_PREFIX}/resumes", tags=["resumes"])
-# app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["jobs"])
-# app.include_router(scores.router, prefix=f"{settings.API_V1_PREFIX}/scores", tags=["scores"])
+app.include_router(resumes.router, prefix=f"{settings.API_V1_PREFIX}/resumes", tags=["Resumes"])
+app.include_router(jobs.router, prefix=f"{settings.API_V1_PREFIX}/jobs", tags=["Jobs"])
+# app.include_router(scores.router, prefix=f"{settings.API_V1_PREFIX}/scores", tags=["Scoring"])
+app.include_router(models.router, prefix=f"{settings.API_V1_PREFIX}/models", tags=["Models"])
+app.include_router(background_jobs.router, prefix=f"{settings.API_V1_PREFIX}", tags=["Background Jobs"])

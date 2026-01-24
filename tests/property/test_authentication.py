@@ -7,7 +7,8 @@ Property 30: Password hashing
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, strategies as st
+from hypothesis import settings as hypothesis_settings
 from datetime import datetime, timedelta
 from jose import jwt
 
@@ -21,7 +22,7 @@ class TestJWTTokenValidation:
     """Property tests for JWT token validation"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=50)
+    @hypothesis_settings(max_examples=50)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         user_id=st.uuids(),
@@ -91,7 +92,7 @@ class TestAuthorizationEnforcement:
     """Property tests for authorization enforcement"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=30)
+    @hypothesis_settings(max_examples=30)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         user_id=st.uuids(),
@@ -138,7 +139,7 @@ class TestAuthorizationEnforcement:
 class TestPasswordHashing:
     """Property tests for password hashing"""
     
-    @settings(max_examples=100)
+    @hypothesis_settings(max_examples=100)
     @given(
         password=st.text(min_size=8, max_size=100),
     )
@@ -182,7 +183,7 @@ class TestTokenExpiration:
     """Test token expiration behavior"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=20)
+    @hypothesis_settings(max_examples=20)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         user_id=st.uuids(),
@@ -230,7 +231,7 @@ class TestTokenPayload:
     """Test token payload structure"""
     
     @pytest.mark.asyncio
-    @settings(max_examples=20)
+    @hypothesis_settings(max_examples=20)
     @given(
         username=st.text(min_size=3, max_size=50, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd'))),
         user_id=st.uuids(),

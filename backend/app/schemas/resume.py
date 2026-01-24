@@ -1,8 +1,8 @@
 """Resume schemas"""
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class WorkExperience(BaseModel):
@@ -56,11 +56,11 @@ class ParsedResume(BaseModel):
     low_confidence_fields: List[str] = Field(default_factory=list)
     
     # Metadata
-    parsing_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    parsing_timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     file_format: str
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "raw_text": "John Doe\nSoftware Engineer...",
                 "sections": {
@@ -104,6 +104,7 @@ class ParsedResume(BaseModel):
                 "file_format": "pdf"
             }
         }
+    )
 
 
 class ResumeUploadResponse(BaseModel):

@@ -20,7 +20,8 @@ from backend.app.models.user import UserRole
 @pytest.fixture
 async def client():
     """Create async HTTP client"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
 

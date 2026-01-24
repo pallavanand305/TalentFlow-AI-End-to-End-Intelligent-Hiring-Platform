@@ -24,22 +24,51 @@ async def register(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Register a new user
+    Register a new user account
     
-    Creates a new user account with the specified role.
+    Creates a new user account with the specified role and returns user information.
     
-    **Parameters:**
-    - **username**: Unique username (3-50 characters, alphanumeric)
-    - **email**: Valid email address
-    - **password**: Password (minimum 8 characters)
-    - **role**: User role (admin, recruiter, hiring_manager) - default: recruiter
+    ## Request Body
     
-    **Returns:**
-    - User object with ID, username, email, and role
+    - **username**: Unique username (3-50 characters, alphanumeric and underscores only)
+    - **email**: Valid email address (will be used for notifications)
+    - **password**: Secure password (minimum 8 characters, recommended: mix of letters, numbers, symbols)
+    - **role**: User role determining permissions (default: recruiter)
     
-    **Errors:**
-    - 400: Username or email already exists
-    - 422: Validation error (invalid format)
+    ## User Roles
+    
+    | Role | Permissions |
+    |------|-------------|
+    | **admin** | Full system access, user management, model promotion |
+    | **recruiter** | Upload resumes, view candidates, manage candidate data |
+    | **hiring_manager** | Create jobs, view ranked candidates, manage job postings |
+    
+    ## Response
+    
+    Returns the created user object with:
+    - Unique user ID (UUID)
+    - Username and email
+    - Assigned role
+    
+    ## Error Responses
+    
+    - **400 Bad Request**: Username or email already exists
+    - **422 Unprocessable Entity**: Validation error (invalid format, missing fields)
+    
+    ## Example Usage
+    
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/register" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "username": "jane_recruiter",
+           "email": "jane@company.com",
+           "password": "SecurePass123!",
+           "role": "recruiter"
+         }'
+    ```
+    
+    **Requirements**: 7.1, 7.6
     """
     user_repo = UserRepository(db)
     
@@ -79,27 +108,61 @@ async def login(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Login and get access token
+    Authenticate user and obtain JWT tokens
     
-    Authenticates user credentials and returns JWT tokens.
+    Validates user credentials and returns access and refresh tokens for API authentication.
     
-    **Parameters:**
-    - **username**: Username
-    - **password**: Password
+    ## Request Body
     
-    **Returns:**
-    - **access_token**: JWT access token (expires in 30 minutes)
-    - **refresh_token**: JWT refresh token (expires in 7 days)
-    - **token_type**: Token type (always "bearer")
+    - **username**: Registered username
+    - **password**: User password
     
-    **Usage:**
-    Include the access token in subsequent requests:
+    ## Response
+    
+    Returns JWT tokens for authentication:
+    - **access_token**: Short-lived token for API requests (expires in 30 minutes)
+    - **refresh_token**: Long-lived token for obtaining new access tokens (expires in 7 days)
+    - **token_type**: Always "bearer"
+    
+    ## Token Usage
+    
+    Include the access token in the Authorization header for subsequent API requests:
+    
     ```
     Authorization: Bearer <access_token>
     ```
     
-    **Errors:**
-    - 401: Invalid username or password
+    ## Token Expiration
+    
+    - **Access Token**: 30 minutes (for security)
+    - **Refresh Token**: 7 days (for convenience)
+    
+    When the access token expires, use the refresh token with the `/api/v1/auth/refresh` endpoint to get a new access token without re-entering credentials.
+    
+    ## Security Notes
+    
+    - Store tokens securely (never in localStorage for web apps)
+    - Use HTTPS in production
+    - Tokens are signed with HS256 algorithm
+    - Failed login attempts are logged for security monitoring
+    
+    ## Error Responses
+    
+    - **401 Unauthorized**: Invalid username or password
+    - **422 Unprocessable Entity**: Missing or invalid request format
+    
+    ## Example Usage
+    
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/login" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "username": "jane_recruiter",
+           "password": "SecurePass123!"
+         }'
+    ```
+    
+    **Requirements**: 7.2, 7.3
     """
     user_repo = UserRepository(db)
     
@@ -141,9 +204,90 @@ async def refresh_token(
     """
     Refresh access token using refresh token
     
-    - **refresh_token**: Valid refresh token
+    Obtains a new access token using a valid refresh token, extending the authentication session without requiring the user to log in again.
     
-    Returns new access token and refresh token
+    ## Request Body
+    
+    - **refresh_token**: Valid refresh token obtained from login
+    
+    ## Response
+    
+    Returns new JWT tokens:
+    - **access_token**: New access token (expires in 30 minutes)
+    - **refresh_token**: New refresh token (expires in 7 days)
+    - **token_type**: Always "bearer"
+    
+    ## When to Use
+    
+    Use this endpoint when:
+    - Your access token has expired (401 error with "token expired" message)
+    - You want to extend the session before the access token expires
+    - Implementing automatic token refresh in your application
+    
+    ## Security Features
+    
+    - Refresh tokens are single-use (old refresh token becomes invalid)
+    - Refresh tokens have longer expiration but are still time-limited
+    - User information is re-validated during refresh
+    - Failed refresh attempts are logged
+    
+    ## Error Responses
+    
+    - **401 Unauthorized**: Invalid, expired, or already-used refresh token
+    - **422 Unprocessable Entity**: Missing or malformed request
+    
+    ## Example Usage
+    
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/refresh" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+         }'
+    ```
+    
+    ## Implementation Pattern
+    
+    ```javascript
+    // Automatic token refresh example
+    async function apiCall(url, options = {}) {
+      let response = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          ...options.headers
+        }
+      });
+      
+      if (response.status === 401) {
+        // Try to refresh token
+        const refreshResponse = await fetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken })
+        });
+        
+        if (refreshResponse.ok) {
+          const tokens = await refreshResponse.json();
+          accessToken = tokens.access_token;
+          refreshToken = tokens.refresh_token;
+          
+          // Retry original request
+          response = await fetch(url, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              ...options.headers
+            }
+          });
+        }
+      }
+      
+      return response;
+    }
+    ```
+    
+    **Requirements**: 7.2, 7.3
     """
     # Verify refresh token
     payload = auth_service.verify_refresh_token(token_data.refresh_token)
@@ -194,8 +338,54 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get current user information
+    Get current authenticated user information
     
-    Requires authentication
+    Returns the profile information for the currently authenticated user.
+    
+    ## Authentication Required
+    
+    This endpoint requires a valid JWT access token in the Authorization header:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    ## Response
+    
+    Returns current user information:
+    - **id**: Unique user identifier (UUID)
+    - **username**: User's username
+    - **email**: User's email address
+    - **role**: User's role (admin, recruiter, hiring_manager)
+    
+    ## Use Cases
+    
+    - Verify token validity and get user info
+    - Display user profile in applications
+    - Check user permissions based on role
+    - Validate session state
+    
+    ## Error Responses
+    
+    - **401 Unauthorized**: Missing, invalid, or expired access token
+    
+    ## Example Usage
+    
+    ```bash
+    curl -X GET "http://localhost:8000/api/v1/auth/me" \\
+         -H "Authorization: Bearer <your_access_token>"
+    ```
+    
+    ## Response Example
+    
+    ```json
+    {
+      "id": "123e4567-e89b-12d3-a456-426614174000",
+      "username": "jane_recruiter",
+      "email": "jane@company.com",
+      "role": "recruiter"
+    }
+    ```
+    
+    **Requirements**: 7.2, 7.5
     """
     return current_user

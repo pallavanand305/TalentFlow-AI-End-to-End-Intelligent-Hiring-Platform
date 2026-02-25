@@ -25,6 +25,7 @@ class Candidate(Base, TimestampMixin):
     
     # Relationships
     scores = relationship("Score", back_populates="candidate", cascade="all, delete-orphan")
+    prediction_logs = relationship("PredictionLog", back_populates="candidate", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Candidate(id={self.id}, name={self.name}, email={self.email})>"

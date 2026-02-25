@@ -236,8 +236,21 @@ $RECYCLE.BIN/
 .directory
 .Trash-*
 
-# Kiro specs (keep these in repo)
-# !.kiro/
+# Kiro specs and documentation (exclude from repo)
+.kiro/specs/
+.kiro/steering/
+
+# Documentation files (exclude from repo)
+docs/
+COMMIT_AND_PUSH.md
+CONTRIBUTING.md
+POST_PUSH_CHECKLIST.md
+PRE_PUSH_SUMMARY.md
+PUSH_TO_GITHUB.md
+QUICK_PUSH.md
+MANUAL_SECURITY_CHECK.md
+SECURITY_CHECKLIST.md
+SETUP_GUIDE.md
 
 # Keep important config examples
 !.env.example

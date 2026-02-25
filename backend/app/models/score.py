@@ -24,6 +24,7 @@ class Score(Base, TimestampMixin):
     # Relationships
     candidate = relationship("Candidate", back_populates="scores")
     job = relationship("Job", back_populates="scores")
+    prediction_log = relationship("PredictionLog", back_populates="score", uselist=False)
     
     # Unique constraint
     __table_args__ = (

@@ -326,13 +326,13 @@ The implementation is organized into phases:
     - **Property 19: Score explanation generation**
     - **Validates: Requirements 3.5**
 
-- [ ] 17. Checkpoint - Verify scoring system is working
+- [x] 17. Checkpoint - Verify scoring system is working
   - Ensure all tests pass
   - Verify end-to-end scoring workflow
   - Test with real resume and job description samples
   - Ask the user if questions arise
 
-- [ ] 18. Implement background job processing system
+- [x] 18. Implement background job processing system
   - [x] 18.1 Set up Redis and task queue
     - Configure Redis connection
     - Implement task queue abstraction
@@ -366,7 +366,7 @@ The implementation is organized into phases:
     - **Property 36: Retry logic for transient failures**
     - **Validates: Requirements 4.5, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6**
 
-- [ ] 19. Add background job status API endpoint
+- [x] 19. Add background job status API endpoint
   - [x] 19.1 Implement GET /api/v1/jobs/status/{job_id}
     - Return current job status and progress
     - Return result data on completion
@@ -379,7 +379,7 @@ The implementation is organized into phases:
     - Test retry logic with simulated failures
     - _Requirements: 6.1, 6.2, 6.6_
 
-- [ ] 20. Integrate MLflow for model management
+- [x] 20. Integrate MLflow for model management
   - [x] 20.1 Set up MLflow tracking server
     - Configure MLflow tracking URI
     - Set up artifact storage (S3 or local)
@@ -408,7 +408,7 @@ The implementation is organized into phases:
     - **Property 42: Model version audit trail**
     - **Validates: Requirements 5.1, 5.2, 5.3, 5.4, 5.5, 5.6**
 
-- [ ] 21. Build model management API endpoints
+- [x] 21. Build model management API endpoints
   - [x] 21.1 Implement model management endpoints
     - GET /api/v1/models - List all models and versions
     - GET /api/v1/models/{model_id} - Get model details
@@ -439,14 +439,14 @@ The implementation is organized into phases:
     - Verify MLflow logging
     - _Requirements: 5.1, 5.2_
 
-- [ ] 23. Checkpoint - Verify MLOps integration is working
+- [x] 23. Checkpoint - Verify MLOps integration is working
   - Ensure all tests pass
   - Verify models can be trained and registered
   - Verify scoring uses models from MLflow
   - Ask the user if questions arise
 
 - [ ] 24. Implement model monitoring and drift detection
-  - [ ] 24.1 Create prediction logging system
+  - [-] 24.1 Create prediction logging system
     - Log all scoring inputs and outputs
     - Store predictions in database or S3
     - _Requirements: 10.1_
@@ -503,7 +503,7 @@ The implementation is organized into phases:
     - **Validates: Requirements 13.6**
 
 - [ ] 27. Prepare for AWS deployment
-  - [ ] 27.1 Create Dockerfiles for all services
+  - [x] 27.1 Create Dockerfiles for all services
     - Create Dockerfile for FastAPI backend
     - Create Dockerfile for background workers
     - Create Dockerfile for MLflow server

@@ -45,6 +45,7 @@ class Job(Base, TimestampMixin):
     creator = relationship("User", backref="jobs")
     history = relationship("JobHistory", back_populates="job", cascade="all, delete-orphan")
     scores = relationship("Score", back_populates="job", cascade="all, delete-orphan")
+    prediction_logs = relationship("PredictionLog", back_populates="job", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Job(id={self.id}, title={self.title}, status={self.status})>"

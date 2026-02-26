@@ -267,10 +267,8 @@ resource "aws_ecs_service" "backend" {
     container_port   = 8000
   }
   
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
-  }
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
   
   deployment_circuit_breaker {
     enable   = true
@@ -296,10 +294,8 @@ resource "aws_ecs_service" "worker" {
     assign_public_ip = false
   }
   
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 50
-  }
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 50
   
   deployment_circuit_breaker {
     enable   = true
@@ -329,10 +325,12 @@ resource "aws_ecs_service" "mlflow" {
     container_port   = 5000
   }
   
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
+  service_registries {
+    registry_arn = aws_service_discovery_service.mlflow.arn
   }
+  
+  deployment_maximum_percent         = 200
+  deployment_minimum_healthy_percent = 100
   
   deployment_circuit_breaker {
     enable   = true
@@ -367,46 +365,9 @@ resource "aws_service_discovery_service" "mlflow" {
     routing_policy = "MULTIVALUE"
   }
   
-  health_check_grace_period_seconds = 30
-  
-  tags = local.tags
-}
-
-# Update MLflow service to use service discovery
-resource "aws_ecs_service" "mlflow_with_discovery" {
-  name            = "${local.name_prefix}-mlflow-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.mlflow.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-  
-  network_configuration {
-    subnets          = aws_subnet.private[*].id
-    security_groups  = [module.security_groups.ecs_security_group_id]
-    assign_public_ip = false
+  health_check_custom_config {
+    failure_threshold = 1
   }
-  
-  load_balancer {
-    target_group_arn = aws_lb_target_group.mlflow.arn
-    container_name   = "mlflow"
-    container_port   = 5000
-  }
-  
-  service_registries {
-    registry_arn = aws_service_discovery_service.mlflow.arn
-  }
-  
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
-  }
-  
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
-  }
-  
-  depends_on = [aws_lb_listener.https, aws_lb_listener.http]
   
   tags = local.tags
 }

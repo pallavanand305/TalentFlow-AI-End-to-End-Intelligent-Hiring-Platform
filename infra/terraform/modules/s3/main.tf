@@ -123,6 +123,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "resumes" {
     id     = "resume_lifecycle"
     status = "Enabled"
 
+    filter {}
+
     noncurrent_version_transition {
       noncurrent_days = 30
       storage_class   = "STANDARD_IA"
@@ -145,6 +147,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "models" {
   rule {
     id     = "model_lifecycle"
     status = "Enabled"
+
+    filter {}
 
     transition {
       days          = 30
@@ -173,6 +177,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
   rule {
     id     = "backup_lifecycle"
     status = "Enabled"
+
+    filter {}
 
     transition {
       days          = 7

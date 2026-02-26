@@ -10,6 +10,9 @@ on:
     branches: [main]
     paths:
       - 'infra/terraform/**'
+  schedule:
+    - cron: '0 6 * * *'  # Run at 6 AM UTC daily
+  workflow_dispatch:  # Allow manual trigger
 
 env:
   AWS_REGION: us-east-1
@@ -312,9 +315,3 @@ jobs:
             --data '{"text":"⚠️ TalentFlow AI infrastructure drift detected!\nManual review required. Check GitHub Actions for details."}' \
             ${{ secrets.SLACK_WEBHOOK_URL }}
         fi
-
-# Schedule drift detection to run daily
-on:
-  schedule:
-    - cron: '0 6 * * *'  # Run at 6 AM UTC daily
-  workflow_dispatch:  # Allow manual trigger

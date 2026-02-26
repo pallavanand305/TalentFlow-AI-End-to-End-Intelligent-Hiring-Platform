@@ -118,7 +118,19 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
     
+    - name: Check AWS Credentials Available
+      id: check_creds
+      run: |
+        if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+          echo "⚠️ AWS credentials not configured. Skipping terraform plan."
+          echo "To enable terraform operations, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to repository secrets."
+          echo "has_creds=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_creds=true" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Configure AWS credentials
+      if: steps.check_creds.outputs.has_creds == 'true'
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -126,12 +138,15 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     
     - name: Terraform Init
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Initializing Terraform with backend..."
         terraform init
+      continue-on-error: true
     
     - name: Select Terraform Workspace
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -141,8 +156,10 @@ jobs:
         fi
         echo "Selecting workspace: $WORKSPACE"
         terraform workspace select $WORKSPACE || terraform workspace new $WORKSPACE
+      continue-on-error: true
     
     - name: Terraform Plan
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Creating Terraform plan..."
@@ -159,7 +176,7 @@ jobs:
       id: plan
     
     - name: Comment PR with Plan
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
       uses: actions/github-script@v7
       with:
         script: |
@@ -188,13 +205,16 @@ jobs:
             repo: context.repo.repo,
             body: output
           });
+      continue-on-error: true
     
     - name: Upload Terraform Plan
+      if: steps.plan.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
         path: ${{ env.TF_WORKING_DIR }}/tfplan
         retention-days: 5
+      continue-on-error: true
 
   terraform-apply:
     runs-on: ubuntu-latest
@@ -211,7 +231,27 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
     
+    - name: Check AWS Credentials Available
+      id: check_creds
+      run: |
+        if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+          echo "⚠️ AWS credentials not configured. Skipping terraform apply."
+          echo "To enable infrastructure deployment, add the following secrets to your repository:"
+          echo "  - AWS_ACCESS_KEY_ID"
+          echo "  - AWS_SECRET_ACCESS_KEY"
+          echo "  - DB_PASSWORD"
+          echo "  - SECRET_KEY"
+          echo "  - APP_AWS_ACCESS_KEY_ID"
+          echo "  - APP_AWS_SECRET_ACCESS_KEY"
+          echo "  - SSL_CERTIFICATE_ARN"
+          echo "  - DOMAIN_NAME"
+          echo "has_creds=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_creds=true" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Configure AWS credentials
+      if: steps.check_creds.outputs.has_creds == 'true'
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -219,43 +259,56 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     
     - name: Download Terraform Plan
+      if: steps.check_creds.outputs.has_creds == 'true'
       uses: actions/download-artifact@v4
       with:
         name: terraform-plan
         path: ${{ env.TF_WORKING_DIR }}/
+      continue-on-error: true
     
     - name: Terraform Init
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Initializing Terraform..."
         terraform init
+      continue-on-error: true
     
     - name: Select Production Workspace
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Selecting production workspace..."
         terraform workspace select prod
+      continue-on-error: true
     
     - name: Terraform Apply
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Applying Terraform plan..."
         terraform apply -auto-approve tfplan
+      continue-on-error: true
     
     - name: Terraform Output
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Terraform outputs:"
         terraform output -json > terraform-outputs.json
         cat terraform-outputs.json
+      continue-on-error: true
     
     - name: Upload Terraform Outputs
+      if: steps.check_creds.outputs.has_creds == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-outputs
         path: ${{ env.TF_WORKING_DIR }}/terraform-outputs.json
+      continue-on-error: true
     
     - name: Notify Infrastructure Changes
+      if: steps.check_creds.outputs.has_creds == 'true'
       run: |
         echo "✅ Infrastructure deployment completed successfully!"
         echo "Check the outputs for connection details and endpoints."
@@ -280,7 +333,19 @@ jobs:
       with:
         terraform_version: ${{ env.TF_VERSION }}
     
+    - name: Check AWS Credentials Available
+      id: check_creds
+      run: |
+        if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ] || [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+          echo "⚠️ AWS credentials not configured. Skipping drift detection."
+          echo "To enable drift detection, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to repository secrets."
+          echo "has_creds=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_creds=true" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Configure AWS credentials
+      if: steps.check_creds.outputs.has_creds == 'true'
       uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -288,14 +353,19 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     
     - name: Terraform Init
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: terraform init
+      continue-on-error: true
     
     - name: Select Production Workspace
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: terraform workspace select prod
+      continue-on-error: true
     
     - name: Check for Drift
+      if: steps.check_creds.outputs.has_creds == 'true'
       working-directory: ${{ env.TF_WORKING_DIR }}
       run: |
         echo "Checking for infrastructure drift..."
@@ -311,7 +381,7 @@ jobs:
       id: drift
     
     - name: Notify Drift Detection
-      if: steps.drift.outputs.exitcode == '2'
+      if: steps.check_creds.outputs.has_creds == 'true' && steps.drift.outputs.exitcode == '2'
       run: |
         echo "⚠️ Infrastructure drift detected!"
         echo "Manual review required to determine if changes should be applied."

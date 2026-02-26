@@ -34,8 +34,6 @@ provider "aws" {
 }
 
 # Data sources
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 data "aws_availability_zones" "available" {
   state = "available"
 }
@@ -198,7 +196,6 @@ module "rds" {
   source = "./modules/rds"
   
   name_prefix            = local.name_prefix
-  vpc_id                 = aws_vpc.main.id
   private_subnet_ids     = aws_subnet.private[*].id
   security_group_ids     = [module.security_groups.rds_security_group_id]
   db_name                = var.db_name

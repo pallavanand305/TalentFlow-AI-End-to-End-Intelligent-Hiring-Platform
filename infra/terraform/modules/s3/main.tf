@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.6.0"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 # S3 Bucket for Resume Files
 resource "aws_s3_bucket" "resumes" {
   bucket = "${var.name_prefix}-resumes"
